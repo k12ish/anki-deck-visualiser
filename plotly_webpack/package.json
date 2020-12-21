@@ -1,0 +1,26 @@
+{
+  "name": "plotly-webpack",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "webpack-dev": "webpack --mode=development --devtool false",
+    "webpack-prod": "webpack --mode=production",
+    "browserify-prod": "browserify index.js -p [minifyify --no-map] > bundle.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "compression-webpack-plugin": "^4.0.0",
+    "ify-loader": "^1.1.0",
+    "transform-loader": "^0.2.4",
+    "webpack": "^4.41.5",
+    "webpack-cli": "^3.3.10"
+  },
+  "dependencies": {
+    "browserify": "^16.5.1",
+    "minifyify": "^7.3.5",
+    "plotly.js": "^1.54.4"
+  }
+}
