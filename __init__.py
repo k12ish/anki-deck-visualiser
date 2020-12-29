@@ -1,22 +1,25 @@
-# import the main window object (mw) from aqt
-from aqt import mw, gui_hooks
-# import the "show info" tool from utils.py
-from aqt.utils import showInfo
-# import all of the Qt GUI library
-from aqt.qt import QAction
-
+from aqt import mw
+from aqt.qt import QAction, QStandardPaths, QUrl
 from anki.utils import ids2str
-
-from aqt.stats import NewDeckStats
-from aqt.webview import WebContent
-import sys
+from aqt.utils import openLink
 import os
 
-ADDON_PACKAGE = mw.addonManager.addonFromModule(__name__)
-"/_addons/{ADDON_PACKAGE}/web/my-addon.js"
+HTML = """
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Generated Graph</title>
+  </head>
+  <body>
+    <div id="plotly-sunburst" style="width:100%;height:100%"></div>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>{}
+  </body>
+</html>
+"""
 
 
-def generate_stats_data():
+def main():
     names_and_ids = mw.col.decks.all_names_and_ids()
     ids, labels, parents, card_counts = [], [], [], []
     for item in names_and_ids:
@@ -30,8 +33,7 @@ def generate_stats_data():
                 "odid in {0}".format(ids2str([item.id]))
             )
         )
-    sys.stderr.write(
-        """<script type="text/javascript">
+    plotly_javascript = """<script type="text/javascript">
 var data = [{{
   type: "sunburst",
   ids: {},
@@ -46,81 +48,21 @@ var layout = {{
 }};
 Plotly.newPlot('plotly-sunburst', data, layout)
 </script>
-""".format(
-            str(ids),
-            str(labels),
-            str(parents),
-            str(card_counts)
-        ))
-    return ids, labels, parents, card_counts
-
-
-def mytest(web):
-    page = os.path.basename(web.page().url().path())
-    if page != "graphs.html":
-        return
-    web.eval(
-        """
-    div = document.createElement("div");
-    div.setAttribute("id", "plotly-sunburst");
-    document.body.appendChild(div);
-"""
+""".format(str(ids),
+           str(labels),
+           str(parents),
+           str(card_counts)
+           )
+    path = os.path.join(
+        QStandardPaths.writableLocation(QStandardPaths.DownloadLocation),
+        "deck-visualiser.html"
     )
+    buf = open(path, "w", encoding="utf-8")
+    buf.write(HTML.format(plotly_javascript))
+    buf.close()
+    openLink(QUrl.fromLocalFile(path))
 
 
-gui_hooks.webview_did_inject_style_into_page.append(mytest)
-
-"""
-106ms
-def generate_stats_data():
-    start = time.time()
-    names_and_ids = mw.col.decks.all_names_and_ids()
-    ids, labels, parents, card_counts = [], [], [], []
-    for item in names_and_ids:
-        ids.append(str(item.name))
-        split_name = [''] + str(item.name).rsplit('::', 1)
-        labels.append(split_name[-1])
-        parents.append(split_name[-2])
-        card_counts.append(
-            mw.col.db.scalar(
-                "select count() from cards where did in {0} or "
-                "odid in {0}".format(ids2str([item.id]))
-            )
-        )
-    sys.stderr.write("\n\n`generate_stats_data` took: "
-                     + str(round((time.time() - start) * 1000))
-                     + "ms")
-    sys.stderr.write(str(labels))
-    sys.stderr.write(str(card_counts))
-    sys.stderr.write(str(parents))
-    sys.stderr.write(str(labels))
-"""
-"""
->>> x = "aaaaa::bbbb::cccc"
->>> y = "aaaaa::bbbbbb"
->>> z = "aaaaaaaaa"
->>> x.rsplit("::", 1)
-['aaaaa::bbbb', 'cccc']
->>> y.rsplit("::", 1)
-['aaaaa', 'bbbbbb']
->>> z.rsplit("::", 1)
-['aaaaaaaaa']
-"""
-
-
-def on_stats_dialog_will_show(dialog: NewDeckStats):
-    showInfo(str(dialog))
-
-
-def on_webview_will_set_content(web_content: WebContent, context):
-    web_content.body += "my_html"
-    web_content.head += ""
-
-
-gui_hooks.stats_dialog_will_show.append(on_stats_dialog_will_show)
-gui_hooks.webview_will_set_content.append(on_webview_will_set_content)
-
-
-action = QAction("test", mw)
-action.triggered.connect(generate_stats_data)
+action = QAction("Visualise decks", mw)
+action.triggered.connect(main)
 mw.form.menuTools.addAction(action)
